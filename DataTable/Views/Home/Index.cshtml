@@ -1,0 +1,189 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<!-- Buttons for applying and clearing filters -->
+<div class="text-right mb-3">
+    <button class="btn"><a class="btn btn-primary" asp-controller="Home" asp-action="Create">Add</a></button>
+    <button id="filterButton" class="btn btn-primary">Filter</button>
+    <button id="clearButton" class="btn btn-secondary">Clear</button>
+</div>
+<!-- Table structure with fewer search fields -->
+<table id="datatable" class="display table table-bordered table-striped table-hover" style="width:100%">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>ProductName</th>
+            <th>Brand</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>DateOfPurchase</th>
+            <th>Action</th>
+        </tr>
+        <tr>
+            <!-- Remove input fields for Id, Brand, Price, and DateOfPurchase -->
+            <th></th> <!-- No search input for Id column -->
+            <th><input type="text" id="searchProductName" placeholder="Search ProductName" style="width: 100%;" /></th>
+            <th></th> <!-- No search input for Brand column -->
+            <th><input type="text" id="searchCategory" placeholder="Search Category" style="width: 100%;" /></th>
+            <th></th> <!-- No search input for Price column -->
+            <th></th> <!-- No search input for DateOfPurchase column -->
+            <th></th> <!-- No search field for Action column -->
+        </tr>
+    </thead>
+</table>
+
+<script>
+        // Create DataTable instance
+        var table = $('#datatable').DataTable({
+            processing: true,
+            serverSide: true,
+            filter: true,
+            ajax: {
+                url: '/Home/GetData',
+                type: 'POST',
+                dataType: 'json',
+                data: function (d) {
+                    // Send only the remaining search fields
+                    d.columns[1].search.value = $('#searchProductName').val(); // ProductName column
+                    d.columns[3].search.value = $('#searchCategory').val(); // Category column
+                }
+            },
+            columns: [
+                { data: "id", name: "Id", autowidth: true },
+                { data: "productName", name: "ProductName", autowidth: true },
+                { data: "brand", name: "Brand", autowidth: true },
+                { data: "category", name: "Category", autowidth: true },
+                { data: "price", name: "Price", autowidth: true },
+                { data: "dateOfPurchase", name: "DateOfPurchase", autowidth: true },
+                {
+                    render: function (data, type, row, meta) {
+                        return `<a href="#" class="btn btn-sm btn-danger m-1 p-1 delete-btn" data-id="${row.id}">Delete</a>`;
+                    }
+                }
+            ],
+            columnDefs: [
+                { targets: [0, 2, 4, 5], searchable: false } // Disable searching for removed columns
+            ],
+            initComplete: function () {
+                // Remove default column searching when inputs change
+                this.api().columns().every(function () {
+                    var column = this;
+                    $('input', this.header()).off('keyup change clear');
+                });
+            }
+        });
+
+        // Filter button event listener
+        $('#filterButton').on('click', function () {
+            table.draw(); // Redraw the table with the applied filters
+        });
+
+        // Clear button event listener
+        $('#clearButton').on('click', function () {
+            // Clear remaining search input fields
+            $('#searchProductName, #searchCategory').val('');
+
+            // Clear individual column searches for the remaining columns and redraw the table
+            table.columns([1, 3]).search('').draw(); // Clear only the ProductName and Category searches
+        });
+
+    // Handle delete button click event
+    $('#datatable tbody').on('click', '.delete-btn', function () {
+        var productId = $(this).data('id');
+
+        if (confirm("Are you sure you want to delete this product?")) {
+            $.ajax({
+                url: '/Home/Delete',
+                type: 'POST',
+                data: { id: productId },
+                success: function (response) {
+                    if (response.success) {
+                        alert(response.message);
+                        table.draw(); // Redraw table to reflect changes
+                    } else {
+                        alert("Error: " + response.message);
+                    }
+                },
+                error: function () {
+                    alert("Error occurred while deleting the product.");
+                }
+            });
+        }
+    });
+</script>
+
+@* 
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<p><a class="btn btn-primary" asp-controller="Home" asp-action="Create">Add</a></p>
+<table id="datatable" class="display table table-bordered table-striped table-hover" style="width:100%">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>ProductName</th>
+            <th>Brand</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>DateOfPurchase</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+</table>
+
+<script>
+    GetAllData();
+    $(document).ready(function () {
+    });
+
+    function GetAllData() {
+        $('#datatable').DataTable({
+            processing: true,
+            serverSide: true,
+            filter: true,
+            ajax: {
+                url: '/Home/GetData',
+                type: 'POST',
+                dataType: 'json'
+            },
+            columns: [
+                { data: "id", name: "Id", autowidth: true },
+                { data: "productName", name: "ProductName", autowidth: true },
+                { data: "brand", name: "Brand", autowidth: true },
+                { data: "category", name: "Category", autowidth: true },
+                { data: "price", name: "Price", autowidth: true },
+                {
+                    data: "dateOfPurchase",
+                    name: "DateOfPurchase",
+                    autoWidth: true,
+                    render: function (data, type, row) {
+                        if (data && data.trim() !== "") {
+                            var dateObj = new Date(data);
+                            if (!isNaN(dateObj)) {
+                                var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                                var day = dateObj.getDate().toString().padStart(2, '0');
+                                var month = monthNames[dateObj.getMonth()];
+                                var year = dateObj.getFullYear().toString();
+                                return day + "-" + month + "-" + year;
+                            }
+                        }
+                        return "";
+                    }
+                },
+                {
+                    render: function (data, type, row, meta) {
+                        return '<a href="#" class="btn btn-sm btn-danger m-1 p-1">Delete</a>'
+                    }
+                }
+            ],
+            columnDefs:[
+                {
+                    targets: [0],
+                    searchable:false,
+                }
+            ]
+        });
+    };
+</script> *@

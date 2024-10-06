@@ -1,0 +1,129 @@
+﻿@{
+    ViewData["Title"] = "Product Page";
+}
+
+<div class="text-right mb-3">
+    <button class="btn"><a class="btn btn-primary" asp-controller="Product" asp-action="Create">Add</a></button>
+    <button id="filterButton" class="btn btn-primary">Filter</button>
+    <button id="clearButton" class="btn btn-secondary">Clear</button>
+    <button id="deleteButton" class="btn btn-danger">Delete</button>
+</div>
+
+<table id="datatable" class="display table table-bordered table-striped table-hover" style="width:100%">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>ProductName</th>
+            <th>Brand</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>DateOfPurchase</th>
+        </tr>
+        <tr>
+            <th>Sort</th>
+            <th><input type="text" id="searchProductName" placeholder="Search ProductName" style="width: 100%;" /></th>
+            <th>Sort</th>
+            <th><input type="text" id="searchCategory" placeholder="Search Category" style="width: 100%;" /></th>
+            <th>Sort</th>
+            <th>Sort</th>
+        </tr>
+    </thead>
+</table>
+
+<script>
+        var table = $('#datatable').DataTable({
+            processing: true,
+            serverSide: true,
+            filter: true,
+            ajax: {
+                url: '/Product/GetData',
+                type: 'POST',
+                dataType: 'json',
+                data: function (d) {
+                    d.columns[1].search.value = $('#searchProductName').val();
+                    d.columns[3].search.value = $('#searchCategory').val();
+                }
+            },
+            columns: [
+                {
+                    data: "id",
+                    orderable: false,
+                    title: '<div class="cus-checkbox"><input id="selectAllCheckbox" type="checkbox" onclick="toggleCheckboxSelection();" /><label></label></div>',
+                    render: function (data) {
+                        return "<div class='cus-checkbox'><input type='checkbox' name='product_delete[]' value='" + data + "' /><label></label></div>";
+                    }
+                },
+                { data: "productName", name: "ProductName", autoWidth: true },
+                { data: "brand", name: "Brand", autoWidth: true },
+                { data: "category", name: "Category", autoWidth: true },
+                { data: "price", name: "Price", autoWidth: true },
+                { data: "dateOfPurchase", name: "DateOfPurchase", autoWidth: true }
+            ]
+        });
+
+        // Toggle select/deselect all checkboxes
+        function toggleCheckboxSelection() {
+            var selectAllCheckbox = document.getElementById("selectAllCheckbox");
+            var checkboxes = document.getElementsByName("product_delete[]");
+            for (var i = 0; i < checkboxes.length; i++) {
+                checkboxes[i].checked = selectAllCheckbox.checked;
+            }
+        }
+
+        // Function to delete selected products
+        $('#deleteButton').on('click', function () {
+            var selectedIds = [];
+            $('input[name="product_delete[]"]:checked').each(function () {
+                selectedIds.push($(this).val());
+            });
+
+            if (selectedIds.length > 0) {
+                Swal.fire({
+                    title: 'Are you sure?',
+                    text: "You won't be able to revert this!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Yes, delete it!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            type: 'POST',
+                            url: '/Product/DeleteMultiple', // The new endpoint for deleting multiple items
+                            data: JSON.stringify(selectedIds),
+                            contentType: 'application/json',
+                            success: function (data) {
+                                if (data.success) {
+                                    Swal.fire(
+                                        'Deleted!',
+                                        'Selected products have been deleted.',
+                                        'success'
+                                    );
+                                    table.ajax.reload(); // Reload the DataTable after deletion
+                                } else {
+                                    Swal.fire('Error!', data.message, 'error');
+                                }
+                            },
+                            error: function () {
+                                Swal.fire('Error!', 'An error occurred while deleting products.', 'error');
+                            }
+                        });
+                    }
+                });
+            } else {
+                Swal.fire('Warning!', 'Please select at least one product to delete.', 'warning');
+            }
+        });
+
+        // Filter button event listener
+        $('#filterButton').on('click', function () {
+            table.draw();
+        });
+
+        // Clear button event listener
+        $('#clearButton').on('click', function () {
+            $('#searchProductName, #searchCategory').val('');
+            table.columns([1, 3]).search('').draw();
+        });
+</script>
